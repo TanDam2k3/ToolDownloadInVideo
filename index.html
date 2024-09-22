@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Media as Zip</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/4.22.5/antd.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/antd/4.22.5/antd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            color: #007BFF;
+        }
+
+        input {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        .results {
+            margin-top: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        #urlList {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #urlList li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Upload HAR file and Download as ZIP</h1>
+    <input type="file" id="fileInput" accept=".har">
+    <div class="results">
+        <h2>Found URLs:</h2>
+        <div id="status"></div>
+        <div id="progressContainer" style="margin-top: 10px;">
+            <div id="progressBar" style="display:none;">
+                <div id="progressText"></div>
+                <div id="progress" style="width: 0%; height: 10px; background: #007BFF;"></div>
+            </div>
+        </div>
+        <ul id="urlList"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = async function (e) {
+                    try {
+                        const harContent = JSON.parse(e.target.result);
+                        const entries = harContent.log.entries;
+
+                        if (!entries || entries.length === 0) {
+                            throw new Error('Không tìm thấy bất kỳ mục entries nào trong file HAR.');
+                        }
+
+                        const videoSegmentUrls = entries
+                            .map(entry => entry.request.url)
+                            .filter(url => url.includes('video_segment.ts') || url.includes('image'));
+
+                        if (videoSegmentUrls.length === 0) {
+                            throw new Error('Không tìm thấy bất kỳ URL nào chứa "video_segment.ts".');
+                        }
+
+                        const urlList = document.getElementById('urlList');
+                        urlList.innerHTML = '';
+                        videoSegmentUrls.forEach(url => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = url;
+                            urlList.appendChild(listItem);
+                        });
+
+                        await downloadAndZipFiles(videoSegmentUrls);
+                    } catch (error) {
+                        displayMessage('Đã có lỗi xảy ra: ' + error.message, true);
+                    }
+                };
+
+                reader.readAsText(file);
+            }
+        });
+
+        async function downloadAndZipFiles(urls) {
+            const zip = new JSZip();
+            const folder = zip.folder("media");
+            const statusDiv = document.getElementById('status');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progress = document.getElementById('progress');
+
+            progressContainer.style.display = 'block';
+            progressBar.style.display = 'block';
+            statusDiv.textContent = 'Đang tải tệp...';
+
+            const maxConcurrentRequests = 5;
+            const totalUrls = urls.length;
+            let completedUrls = 0;
+
+            for (let i = 0; i < urls.length; i += maxConcurrentRequests) {
+                const chunk = urls.slice(i, i + maxConcurrentRequests);
+                const fetchPromises = chunk.map((url, index) => fetchAndAddToZip(url, folder, index + i));
+                const chunkResults = await Promise.allSettled(fetchPromises);
+                completedUrls += chunk.length;
+
+                const percent = Math.round((completedUrls / totalUrls) * 100);
+                progress.style.width = percent + '%';
+                progressText.textContent = percent + '% hoàn tất';
+
+                if (chunkResults.some(result => result.status === 'rejected')) {
+                    displayMessage('Một số lỗi đã xảy ra khi tải.', true);
+                }
+            }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const blobUrl = URL.createObjectURL(content);
+
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = "media.zip";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            progress.style.width = '100%';
+            progressText.textContent = '100% hoàn tất';
+            displayMessage('Tải file zip hoàn tất.', false);
+        }
+
+        async function fetchAndAddToZip(url, folder, index) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Lỗi khi tải tệp từ ${url}: ${response.statusText}`);
+                }
+                const blob = await response.blob();
+                const contentType = blob.type;
+
+                let extension;
+                if (contentType.startsWith('video/')) {
+                    extension = 'ts';
+                } else if (contentType.startsWith('image/')) {
+                    extension = 'jpg';
+                } else {
+                    throw new Error(`Định dạng tệp không hỗ trợ: ${contentType}`);
+                }
+
+                const filename = `media_segment_${index + 1}.${extension}`;
+                folder.file(filename, blob);
+                return { status: 'fulfilled' };
+            } catch (error) {
+                return { status: 'rejected', reason: error.message };
+            }
+        }
+
+        function displayMessage(message, isError) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            if (isError) {
+                statusDiv.classList.add('error');
+            } else {
+                statusDiv.classList.remove('error');
+            }
+        }
+    </script>
+</body>
+
+</html>
