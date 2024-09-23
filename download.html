@@ -116,23 +116,33 @@
                             throw new Error('Không tìm thấy bất kỳ mục entries nào trong file HAR.');
                         }
 
-                        const videoSegmentUrls = entries
-                            .map(entry => entry.request.url)
-                            .filter(url => url.includes('video_segment.ts') || url.includes('image'));
+                        const videoSegmentUrlsSet = new Set();
 
-                        if (videoSegmentUrls.length === 0) {
+                        entries.forEach(entry => {
+                            let url = entry.request.url;
+
+                            if (url.includes('video_segment.ts') || url.includes('image')) {
+                                const urlObj = new URL(url);
+                                urlObj.searchParams.set('start', '0');
+                                urlObj.searchParams.set('duration', '20');
+                                url = urlObj.toString();
+                                videoSegmentUrlsSet.add(url);
+                            }
+                        });
+
+                        if (videoSegmentUrlsSet.size === 0) {
                             throw new Error('Không tìm thấy bất kỳ URL nào chứa "video_segment.ts".');
                         }
 
                         const urlList = document.getElementById('urlList');
                         urlList.innerHTML = '';
-                        videoSegmentUrls.forEach(url => {
+                        videoSegmentUrlsSet.forEach(url => {
                             const listItem = document.createElement('li');
                             listItem.textContent = url;
                             urlList.appendChild(listItem);
                         });
 
-                        await downloadAndZipFiles(videoSegmentUrls);
+                        await downloadAndZipFiles(Array.from(videoSegmentUrlsSet));
                     } catch (error) {
                         displayMessage('Đã có lỗi xảy ra: ' + error.message, true);
                     }
@@ -141,6 +151,7 @@
                 reader.readAsText(file);
             }
         });
+
 
         async function downloadAndZipFiles(urls) {
             const zip = new JSZip();
