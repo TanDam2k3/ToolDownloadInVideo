@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuyển văn bản thành giọng nói</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .navbar {
+            background-color: #007BFF;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: absolute;
+            top: 0;
+        }
+
+        .navbar a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-size: 18px;
+            transition: color 0.3s;
+        }
+
+        .navbar a:hover {
+            color: #ffdd57;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            margin-top: 60px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 26px;
+            margin-bottom: 25px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            outline: none;
+            resize: none;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            border-color: #6666ff;
+        }
+
+        select {
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            width: 100%;
+            margin-top: 15px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            border-color: #6666ff;
+        }
+
+        button {
+            background-color: #6666ff;
+            color: white;
+            padding: 14px 22px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 25px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #5555e6;
+        }
+
+        label {
+            font-size: 16px;
+            color: #333;
+            display: block;
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navbar">
+        <a href="index.html">Trang chính</a>
+        <a href="download.html">Tải xuống phương tiện</a>
+        <a href="text-to-speech.html">Chuyển văn bản thành giọng nói</a>
+    </div>
+    <div class="container">
+        <h1>Chuyển văn bản thành giọng nói</h1>
+        <textarea id="textInput" rows="5" placeholder="Nhập văn bản..."></textarea>
+        <label for="voiceSelect">Chọn giọng nói:</label>
+        <select id="voiceSelect">
+            <option value="">Chọn giọng...</option>
+        </select>
+        <button onclick="speakText()">Chuyển thành giọng nói</button>
+    </div>
+
+    <script src="https://code.responsivevoice.org/responsivevoice.js?key=XY9y4emW"></script>
+    <script>
+        const voiceSelect = document.getElementById("voiceSelect");
+
+        function populateVoiceList() {
+            const voices = responsiveVoice.getVoices();
+            voices.forEach(voice => {
+                const option = document.createElement("option");
+                option.value = voice.name;
+                option.text = voice.name + " (" + voice.lang + ")";
+                voiceSelect.add(option);
+            });
+        }
+
+        populateVoiceList();
+
+        function speakText() {
+            const text = document.getElementById("textInput").value;
+            const selectedVoice = voiceSelect.value;
+
+            if (!text) {
+                alert("Vui lòng nhập văn bản để chuyển đổi.");
+                return;
+            }
+
+            if (!selectedVoice) {
+                alert("Vui lòng chọn giọng nói.");
+                return;
+            }
+
+            responsiveVoice.speak(text, selectedVoice);
+        }
+    </script>
+</body>
+
+</html>
