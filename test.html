@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xử lý Video</title>
+    <style>
+        video,
+        canvas {
+            display: block;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Xử lý Video</h1>
+    <input type="file" id="upload" accept="video/*, .ts">
+    <video id="video" width="640" height="360" controls style="display:none;"></video>
+    <canvas id="canvas" width="640" height="360"></canvas>
+    <button id="download" style="display:none;">Tải xuống khung hình đã xử lý</button>
+
+    <script>
+        const upload = document.getElementById('upload');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const downloadButton = document.getElementById('download');
+
+        upload.addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                video.src = url;
+                video.style.display = 'block';
+                video.load();
+                video.play();
+            }
+        });
+
+        video.addEventListener('play', function () {
+            const draw = () => {
+                if (!video.paused && !video.ended) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    // Áp dụng hiệu ứng đảo ngược màu sắc
+                    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    let data = imageData.data;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = 255 - data[i];     // Đỏ
+                        data[i + 1] = 255 - data[i + 1]; // Xanh lá
+                        data[i + 2] = 255 - data[i + 2]; // Xanh dương
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    requestAnimationFrame(draw);
+                }
+            };
+            draw();
+        });
+
+        downloadButton.addEventListener('click', function () {
+            canvas.toBlob(function (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'processed-frame.png'; // Tải xuống chỉ là một khung hình
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        });
+
+        video.addEventListener('ended', function () {
+            downloadButton.style.display = 'block';
+        });
+    </script>
+</body>
+
+</html>
